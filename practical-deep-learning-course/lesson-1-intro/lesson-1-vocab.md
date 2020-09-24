@@ -13,6 +13,10 @@
 * head (of a model)
   * the part of the model that is newly added to be specific to the new dataset
 pretraining
+* hyperparameters
+  * parameters about parameters
+  * the higher-level choices that govern the meaning of the weight parameters
+  * include choices on network architecture, learning rates, data augmentation strategies, etc.
 * loss
   * a measure of how good a model is, chosen to drive training via stochastic gradient descent (SGD)
 * model
@@ -28,6 +32,9 @@ pretraining
 * tabular
   * data that is in the form of a table, such as from a spreadsheet, database, or CSV file
   * a tabular model is a model that tries to predict one column of a table based on information in other columns of the table
+* test set
+  * portion of data reserved only for the evaluation of the model after all modifications of the model
+  * cannot be used to improve the model (overfitting)
 * training set
   * the data used for fitting the model
   * does not include any data from the validation set
