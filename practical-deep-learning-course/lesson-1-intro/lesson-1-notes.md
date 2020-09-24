@@ -29,3 +29,39 @@
   * we don't want to simply memorize what we have already seen and make poor predictions about new images (overfitting)
 * segmentation
   * creating a model that can recognize the content of every individual pixel in an image
+* tabular models
+  * predicting one column of a table based on information in other columns of the table
+  * need to tell fastai which columns are categorical
+    * which columns contain values that are of a discrete set of choices
+    * ex: ```cat_names = ['workclass', 'education', 'marital-status', occupation']```
+  * need to specify which columns are continuous
+    * which columns contain a number that represents a quantity
+    * ex: ```cont_names = ['age', 'years-of-education']```
+  * usually aren't any pretrained models for tabular modeling
+    * can't use ```fine_tune```
+      * though fastai does let you use ```fine_tune``` even without pretraining in some cases
+    * use ```fit_one_cycle```
+      * method used for training fastai models from scratch—without transfer learning
+  * ```show_results``` method gives examples of predictions
+* using datasets
+  * in practice, best to do most experimentation and prototyping with subsets of data
+  * only use full dataset once you have a good understanding of what needs to be done
+  * hyperparameters
+    * choices made on parameters about parameters
+    * choices on network architecture, learning rates, data augmentation, etc.
+  * training, validation, and test sets
+    * test and validation sets need to have enough data to be good estimates of accuracy
+    * validation set is for tweaking hyperparameters
+    * test set is for evaluating model after all changes to the model, and is not to be used to improve the model
+    * can do better than randomly grabbing a fraction of the original dataset for a test set or validation set
+      * validation and test sets must be representative of new data we will see in the future
+      * time series data
+        * randomly choosing a subset of the data will not be representative of what you will see in the future
+        * better to choose a continuous section with the latest dates as the validation and test sets
+          * this allows you to predict going forward, rather than getting a sense of the data without any relation to time
+          * can use back-testing to check whether models are predictive of futre periods
+      * case when data for predictions will be qualitatively different from the data you are training with
+        * especially important when datasets are not very diverse
+        * if person/object is in both training and validation sets, it will be easy for model to predict
+        * much better to have people/objects not in training sets in validation and training sets
+* GPU runs faster than CPU for deep learning
