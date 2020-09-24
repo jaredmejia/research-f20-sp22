@@ -25,6 +25,9 @@ pretraining
   * a model that has already been trained, generally using a large dataset, and will be fine-tuned
 * segmentation
   * creating a model that can recognize the content of every individual pixel in an image
+* tabular
+  * data that is in the form of a table, such as from a spreadsheet, database, or CSV file
+  * a tabular model is a model that tries to predict one column of a table based on information in other columns of the table
 * training set
   * the data used for fitting the model
   * does not include any data from the validation set
