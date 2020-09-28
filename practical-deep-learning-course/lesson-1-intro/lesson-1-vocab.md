@@ -1,4 +1,4 @@
-# fast.ai course Vocabulary
+# Vocabulary from Lesson 1: Introduction 
 * architecture
   * the template of the model we're trying to fit
   * the actual mathematical function we're passing the input data and parameters to
