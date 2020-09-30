@@ -94,13 +94,13 @@
      * `get_items=get_image_files`
        * underlying items of `DataLoaders` is a path
        * `get_image_files` takes a path, returns a list of al the images in that path
-     * splitter=RandomSplitter(valid_pct=0.2, seed=42)
+     * `splitter=RandomSplitter(valid_pct=0.2, seed=42)`
        * randomly splitting our training and validation sets
        * setting the seed means we will have the same training/validation split each time we run
      * `get_y=parent_label`
        * telling fastai which function to call to create the labels in the dataset
        * `parent_label` gets the name of the folder a file is in
-     * `item_tfms=Resize(128)
+     * `item_tfms=Resize(128)`
        * mini-batch: several images that we feed our model at a time
        * tensor: a group of mini-batches in a large array
        * all images need to be of the same size to be in a tensor
