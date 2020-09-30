@@ -87,7 +87,7 @@
          get_y=parent_label,
          item_tfms=Resize(128))
      ```
-     * `blocks=(ImageBlock, CategoryBlock)
+     * `blocks=(ImageBlock, CategoryBlock)`
        * specify what we want for the independent and dependent variables
          * indpendent variable (x): what we are using to make predictions from
          * dependent variabl (y)e: our target
