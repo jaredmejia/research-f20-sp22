@@ -155,6 +155,109 @@
     * the model can help you find data issues more quickly and easily
     * data cleaning to remove data that shouldn't be included in training or to update bad labels
   * `ImageClassifierCleaner`
+    * allows you to choose a category and the training or validation set and view the highest-loss images in order of highest to lowest loss
+    * provides menus to allow images to be selected for removal or relabeling
+    * to delete all images selected for deletion `for idx in cleaner.delete(): cleaner.fns[idx].unlink()`
+    * to move images which have been selected for a different category: `for idx,cat in cleaner.change(): shutil.move(str(cleaner.fns[idx]), path/cat)
+* Using the Model for Inference
+  * `export` method
+    * saves the architecture and trained parameters of a model
+    * also saves the definition for how to create your `DataLoaders`
+      * otherwise would have to redefine how to transform the data in order to use the model in production
+      * fastai automatically uses validation set `DataLoader` for inference by default
+        * data augmentation will not be applied
+    * `learn.export()`
+      * saves a 'pkl' file
+    ```
+    path = Path()
+    path.ls(file_exts='.pkl')
+    ```
+      * checking file exists
+  * inference: using a model for getting predictions rather than training
+    * `learn_inf = load_learner(path/'export.pkl')`
+      * creating an inference learner from the exported file
+    * `learn_inf.predict('images/grizzly.jpg')`
+      * getting a prediction for a single image (usually how it is done in inference)
+      * returns three things
+        * the predicted category in the same format originally provided
+        * the index of the predicted category
+          * based on the order of the categories in the stored list of all possible categories of the `DataLoaders`
+        * the probabilities of each category
+    * `learn_inf.dls.vocab`
+      * accessing `DataLoaders` as an attribute of the `Learner`
+  * IPython widgets (ipywidgets)
+    * GUI components with JavaScript and Python functionality in a web browser
+    * can be created and used within a Jupyter notebook
+  * Voilà
+    * system for making applications consisting of IPython widgets available to end users
+    * users don't have to use Jupyter
+    * helps automatically convert the notebook into a simpler, easier to deploy web app which functions like a normal web application rather than a notebook
+  * building a GUI
+    * `btn_upload = widgets.FileUpload()`
+    * `btn_upload`
+      * file upload widget
+    ```
+    img = PILImage.create(btn_upload.data[-1])
+    out_pl = widgets.Output()
+    out_pl.clear_output()
+    with out_pl: display(img.to_thumb(128,128))
+    out_pl
+    ```
+      * grabbing image
+      * using `Output` widget to display the image uploaded through the widget
+    * `pred, pred_idx, probs = learn_inf.predict(out_pl)`
+      * getting predictions for the image
+    ```
+    lbl_pred = widgets.Label()
+    lbl_pred.value = f'Prediction: {pred}; Probability: {probs[pred_idx]:.04f}'
+    lbl_pred
+    ```
+      * using `Label` to display the predictions
+    ```
+    btn_run = widgets.Button(description='Classify')
+    btn_run
+    ```
+      * button for classification
+    ```
+    def on_click_classify(change):
+        img = PILImage.create(btn_upload.data[-1])
+        out_pl.clear_output()
+        with out_pl: display(img.to_thumb(128,128))
+        pred,pred_idx,probs = learn_inf.predict(img)
+        lbl_pred.value = f'Prediction: {pred}; Probability: {probs[pred_idx]:.04f}'
+
+    btn_run.on_click(on_click_classify)
+    ```
+      * click even handler
+      * function to be called when button is pressed
+    ```
+    btn_upload = widgets.FileUpload()
+    VBox([widgets.Label('Select your bear!'), btn_upload, btn_run, out_pl, lbl_pred])
+    ```
+      * finished GUI
+  * Converting Notebook into App
+    ```
+    !pip install voila
+    !jupyter serverextension enable voila —sys-prefix
+    ```
+      * installing Voilà
+      * cells beginning with a `!` contain code that is passed to the shell in notebook
+      * replace "notebooks" in browsers URL with "voila/render" to view notebook as a Voilà web app
+      * can use `(pred,pred_idx,probs = learn.predict(img))` with any framework
+  * Deploying an app
+    * GPU is needed to train deep learning models, but is not needed to serve the model in production
+      * GPUs are only useful when doing lots of identical work in parallel
+      * image classification is usually one task (classification) at a time
+      * CPU can be more cost-effective
+    * "You may well want to deploy your application onto mobile devices, or edge devices such as a Raspberry Pi. There are a lot of libraries and frameworks that allow you to integrate a model directly into a mobile application. However, these approaches tend to require a lot of extra steps and boilerplate, and do not always support all the PyTorch and fastai layers that your model might use [...] we recommend wherever possible that you deploy the model itself to a server, and have your mobile or edge application connect to it as a web service. "
+* common issues
+  * out of domain data
+    * data that model sees in production which is different to what was seen in training
+  * domain shift
+    * when the type of data our model sees changes over time
+  * models may change the behavior of the system they are apart of
+    * feedback loops can result in negative implications of bias getting worse and worse
+    
 ## Questionnare
 * Provide an example of where the bear classification model might work poorly in production, due to structural or style differences in the training data.
 * Where do text models currently have a major deficiency?
@@ -201,11 +304,25 @@
 * What is a confusion matrix?
   * visualization of the actual categories of the dataset vs the predicted categories of the items
 * What does export save?
+  * the model architecture and trained parameters
 * What is it called when we use a model for getting predictions, instead of training?
+  * inference
 * What are IPython widgets?
+  *  GUI components with JavaScript and Python functionality in a web browser
 * When might you want to use CPU for deployment? When might GPU be better?
+  * CPU is usually better for deployment as it is more cost-effective than GPUs.
+  * GPU might be better if deployment is done in large batches
 * What are the downsides of deploying your app to a server, instead of to a client (or edge) device such as a phone or PC?
+  * application will require a network connection and there will inevitably be latency
 * What are three examples of problems that could occur when rolling out a bear warning system in practice?
+  * inability to handle nighttime images
+  * touble dealing with low-resolution camera images
+  * working with video data instead of images
 * What is "out-of-domain data"?
+  * data that model sees in production which is different to what was seen in training
 * What is "domain shift"?
-* What are the three steps in the deployment process?0
+  * when the type of data our model sees changes over time
+* What are the three steps in the deployment process?
+  * Manual Process
+  * Limited scope deployment
+  * gradual expansion
