@@ -168,26 +168,26 @@
     ```
     divisible_by_47 = [o for o in range(10000) if o % 47 == 0]
     ```
-5. What is a "rank-3 tensor"?
+5. **What is a "rank-3 tensor"?**
   - a three dimensional tensor
-6. What is the difference between tensor rank and shape? How do you get the rank from the shape?
+6. **What is the difference between tensor rank and shape? How do you get the rank from the shape?**
   - tensor rank is the number of axes or dimensions of a tensor
   - tensor shape is the size of each axis of a tensor
   - `rank = len(tensor.shape)`
-7. What are RMSE and L1 norm?
+7. **What are RMSE and L1 norm?**
   - L1 norm is the mean of the absolute diffrence between all values in two vectors
   - L2 norm or RMSE is the square root of the mean of the square of differences of all values in two vectors
-8. How can you apply a calculation on thousands of numbers at once, many thousands of times faster than a Python loop?
+8. **How can you apply a calculation on thousands of numbers at once, many thousands of times faster than a Python loop?**
   - by using NumPy or PyTorch operations
-9. Create a 3×3 tensor or array containing the numbers from 1 to 9. Double it. Select the bottom-right four numbers.
+9. **Create a 3×3 tensor or array containing the numbers from 1 to 9. Double it. Select the bottom-right four numbers.**
   ```
   t = tensor([[o,o+1,o+2] for o in range(1,10,3)])
   t = t*2
   bottom_right = t[1:,1:]
   ```
-10. What is broadcasting?
-11. Are metrics generally calculated using the training set, or the validation set? Why?
-12. What is SGD?
+10. **What is broadcasting?**
+11. **Are metrics generally calculated using the training set, or the validation set? Why?**
+12. **What is SGD?**
 13. Why does SGD use mini-batches?
 14. What are the seven steps in SGD for machine learning?
 15. How do we initialize the weights in a model?
