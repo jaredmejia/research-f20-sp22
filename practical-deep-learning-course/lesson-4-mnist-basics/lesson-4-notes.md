@@ -64,7 +64,7 @@
       - this results in a value for every pixel position, a single (blurry) image
     - finding the distance of a single 3 from the 'ideal' 3
       - the *L1 norm*
-        - the mean of the absolute value of idfferences
+        - the mean of the absolute value of differences
         ```
         dist_3_abs = (a_3 - mean3).abs().mean()
         dist_7_abs = (a_3 - mean7).abs().mean()  # if greater than dist_3_abs, prediction is 3
@@ -142,15 +142,149 @@
 - metric is calculated based on predictions of our model and the correct labels in our dataset in order to tell us how good our model is
 - in practice *accuracy* is the metric for classification models
 - metric is calculated over a *validation set* in order to prevent overfitting
- - creating tensors to be used for calculating a metric measuring the quality of our inital model which measures distance from an ideal image
+  - creating tensors to be used for calculating a metric measuring the quality of our inital model which measures distance from an ideal image
+    ```
+    valid_3_tens = torch.stack([tensor(Image.open(o))
+                                for o in (path/'valid'/'3').ls()])  # creating tensors for 3s in validation directory
+    valid_3_tens = valid_3_tens.float()/255
+    valid_3_tens.shape(). # torch.Size([1010, 28, 28]), checking shapes as we go
+    ```
+   - should check shapes as we go
+ - functions to calculate mean absolute error between two tensors
    ```
-   valid_3_tens = torch.stack([tensor(Image.open(o))
-                               for o in (path/'valid'/'3').ls()])  # creating tensors for 3s in validation directory
-   valid_3_tens = valid_3_tens.float()/255
-   valid_3_tens.shape(). # torch.Size([1010, 28, 28]), checking shapes as we go
+   def mnist_distance(a,b): return (a-b).abs().mean((-1,-2))
+   a_3  # tensor representing a single image
+   mean3  # tensor representing the ideal image
+   mnist_distance(a_3, mean3)  # tensor(0.1114)
    ```
- 
-    
+   - would need to calculate distance from ideal image for every image
+ - we can pass in tensor representing all images in our validation set and compare them simultaneously with the ideal image
+   ```
+   valid_3_tens  # the tensor representing all 3s in the validation set
+   mean3  # the ideal 3 image
+   valid_3_dist = mnist_distance(valid_3_tens, mean3)  # passing in all 3s as argument to our distance function
+   valid_3_dist  # tensor([0.1050, 0.1526, 0.1186,  ..., 0.1122, 0.1170, 0.1086]), the distance for each image
+   valid_3_dist.shape  # torch.Size([1010]), confirming we have computed the distance for all 1010 images
+   ```
+ - broadcasting
+   - PyTorch will recognize when two tensors are of different ranks as it tries to perform an operation between them
+   - it will automatically expand the tensor with the smaller rank to have the same size as the one with the larger rank
+   - after broadcasting so two argument tensors have the same rank, PyTorch performs the operation on each corresponding element of the two tensors, and returns the tensor result
+   - PyTorch treats `mean3`, a rank-2 tensor representing a single image, as if it were 1010 copies of the same image, then subtracts each of those copies from each 3 in our validation set
+     ```
+     (valid_3_tens-mean3).shape  # torch.Size([1010, 28, 28])
+     ```
+   - calculating the difference between our "ideal 3" and each of the 1010 3s in the validation set, for each 28x28 image, resulting in shape `[1010, 28, 28]`
+   - PyTorch doesn't actually copy `mean3` 1010 (doesn't actually allocate any additional memory) but rather pretends it were a tensor of that shape
+   - PyTorch does the whole calculation in C
+     - if using a GPU, calculates in CUDA, the equivalent of C in GPU
+     - these calculations in C are tens of thousands of times faster than pure Python
+     - these calculations on a GPU are up to a million times faster than pure Python
+   - all broadcasting and elementwise operations and functions done in PyTorch act this way
+   - `abs` applies method to each individual element in the tensor and returns a tensor of the result
+   - `mean((-1,-2))`
+     - `(-1,-2)` tuple represents a range of axes
+     - `-1` refers to last element and `-2` refers to second to last element
+     - we are taking the mean ranging over the values indexed by the last two axes of the tensor
+     - the last two axes are the horizontal and vertical dimensions of the image, so we are left with just the first tensor axis, which indexes over our images which is why our final size is `1010`
+     - for every image, we averaged the intensity of all the pixels in that image
+ - deciding whether an image is a 3 or not
+   - if the distance between the digit in question and the ideal 3 is less than the distance to the ideal 7, then its a 3
+     ```
+     def is_3(x): return mnist_distance(x,mean3) < mnist_distance(x,mean7)
+     is_3(a_3), is_3(a_3).float()  # (tensor(True), tensor(1.))
+     is_3(valid_3_tens)  # tensor([True, True, ..., True])
+     ```
+   - calculating the accuracy for each of the 3s and 7s
+     ```
+     accuracy_3s = is_3(valid_3_tens).float().mean()
+     accuracy_7s = (1-is_3(valid_7_tens).float()).mean()  # inverse of is_3() to check if image is 7
+     accuracy_3s  # tensor(0.9168)
+     accuracy_7s  # tensor(0.9854)
+     (accuracy_3s+accuracy_7s)/2  # tensor(0.9511), average accuracy
+     ```
+   - this is our baseline, now we must train our actual model
+
+### Stochastic Gradient Descent (SGD)
+- instead of trying to find the similarity between an image and an 'ideal image' we could instead look at each individual pixel and come up with a set of weights for each one
+  - the highest weights would be associated with pixels most likely to be black for a particular category
+  - pixels in the bottom right are not likely to be activated for a 7, so they should have a low  weight for a 7
+  - pixels in the bottom right are more likely to be activated for an 8, so they should have high weight for an 8
+- can create a function that takes into account an image and the wieghts for each category
+  ```
+  def pr_eight(x,w) = (x*w).sum()
+  ```
+  - we assume `x` is an image representing a vector
+  - we assume `w` is a vector of all the weights
+    - we want 'w' such that the result of our function is high for actual 8s and low for images of other numbers
+- steps to turn function into machine learning classifier:
+  1. Initialize the weights
+  2. For each image, use the weights to predict whether it appears to be a 3 or a 7
+  3. Based on predictions, calculate how good the model is (its loss)
+  4. Calculate the gradient, which measures for each weight, how changing that weight would change the loss
+  5. Change all the weights based on the gradient
+  6. Back to step 2 and repeat the process
+  7. Iterate until you decide to stop the training process (when the model is good enough)
+- guidelines
+  - initialize
+    - we initialize parameters to random values
+  - loss
+    - we need a function that returns a number that is small if the performance of the model is good
+    - conventionally, we treat a small loss as good, and a large loss as bad
+  - step
+    - we use calculus to calculate the gradients which help us to determine in which direction and by how much to change the weights
+  - stop
+    - we train until the accuracy of the model starts getting worse or until we reach a specified number of epochs
+
+#### Calculating Gradients
+- PyTorch computes the derivative of nearly any function for us
+  ```
+  xt = tensor(3.).requires_grad_()
+  ```
+  - `requires_grad_` tells PyTorch we want to calculate the gradients with respect to that variable at that value
+  - we 'tag' the variable so PyTorch will remember to keep track of how to compute gradients of the other, direct calculations on it that we will ask for
+  - in math the 'gradient' of a function is another function
+  - in deep learning 'gradients' refer to the value of a function's derivative at a particular argument value
+    - PyTorch API puts the focus on the argument rather than the function we're actually computing the gradients of
+  - when we calculate our function with a value tagged for gradient, a gradient function is returned along with a value
+    ```
+    yt = f(xt)  # where f(p) = p**2
+    yt  # tensor(9., grad_fn=<PowBackward0>)
+    ```
+  - telling PyTorch to calculate the gradients
+    ```
+    yt.backward()
+    ```
+    - `backward` refers to backpropagation, the process of calculating the derivative of each layer
+  - we view the gradients by checking the `grad` attribute of the original tensor
+    ```
+    xt.grad  # tensor(6.)
+    ```
+    - sure enough derivative of `x**2` is `2*x` and evaluated at `x=3` we get `6`
+  - we can do the same passing a vector as argument
+    ```
+    xt = tensor([3.,4., 10.]).requires_grad_()
+    xt  # tensor([3., 4., 10.], requires_grad=True)
+    def f(x): return (x**2).sum()  # f: rank 1 tensor (vector) -> rank 0 tensor (scalar)
+    yt = f(xt)
+    yt  # tensor(125., grad_fn=<SumBackward0>)
+    yt.backward()
+    xt.grad  # tensor([6., 8., 20.])
+    ```
+  - note: the gradients only give us the slope of our function, not how far to adjust the parameters
+
+#### Stepping with a Learning Rate
+- the learning rate (LR)
+  - some small number which we multiply by our gradient and the product of which we use to change our parameters
+  - usually a number between 0.001 and 0.1
+  - after picking a learning rate, the parameters are adjusted: `w -= gradient(w) * lr`
+    - this is *stepping* our parameters, using an *optimizer step*
+  - picking a learning rate that is too low can mean having to do a lot of steps
+  - picking a learning rate that is too high can result in the loss actually getting worse
+    - may also just 'bounce' around rather than diverging
+
+#### SGD Example
+- 
 
 ## Questionnaire
 1. **How is a grayscale image represented on a computer? How about a color image?**
@@ -186,13 +320,22 @@
   bottom_right = t[1:,1:]
   ```
 10. **What is broadcasting?**
+  - A method that PyTorch uses when performing elementwise operations on two tensors of different rank
+  - PyTorch expands the tensor of the smaller rank to have the same size as the tensor of the larger rank (or acts as if it does so without actually allocating any extra memory), and then performs the elementwise operations on the two tensors
 11. **Are metrics generally calculated using the training set, or the validation set? Why?**
+  - metrics are calculated using the validation set in order to prevent overfitting, so that we don't build a model that only memorizes the training data
 12. **What is SGD?**
-13. Why does SGD use mini-batches?
-14. What are the seven steps in SGD for machine learning?
-15. How do we initialize the weights in a model?
-16. What is "loss"?
-17. Why can't we always use a high learning rate?
+  - a method for automatically updating the weights of our model based on a loss function
+13. **Why does SGD use mini-batches?**
+  - 
+14. **What are the seven steps in SGD for machine learning?**
+15. **How do we initialize the weights in a model?**
+  - randomly
+16. **What is "loss"?**
+  - a measure of the performance of our model
+  - usually, a small loss is treated as good and a large loss is treated as bad
+17. **Why can't we always use a high learning rate?**
+  - 
 18. What is a "gradient"?
 19. Do you need to know how to calculate gradients yourself?
 20. Why can't we use accuracy as a loss function?
