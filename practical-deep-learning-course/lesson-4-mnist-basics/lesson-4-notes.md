@@ -284,7 +284,275 @@
     - may also just 'bounce' around rather than diverging
 
 #### SGD Example
-- 
+- optimization for a quadratic function with three parameters (a,b,c)
+  ```
+  speed = torch.randn(20)*3 + 0.75*(time-9.5)**2 + 1
+  def f(t, params):
+    a,b,c = params
+    return a*(t**2) + (b*t) + c
+  ```
+- chosen loss function: mean squared error
+  ```
+  def mse(preds, targets): return ((preds-targets)**2).mean()
+  ```
+- process:
+  1. Initialize parameters
+    ```
+    params = torch.randn(3).requires_grad_()  # initializing parameters to random values and tracking gradients
+    orig_params = params.clone()
+    ```
+  2. Calculate the Predictions 
+    ```
+    preds = f(time, params)
+    ```
+  3. Calculate the loss
+    ```
+    loss = mse(preds, speed)
+    loss  # tensor(25823.8086, grad_fn=<MeanBackward0>), our initial total loss
+    ```
+  4. Calculate the gradients
+    ```
+    loss.backward()
+    params.grad  # tensor([-53195.8594,  -3419.7146,   -253.8908])
+    params.grad * 1e^-5  # tensor([-0.5320, -0.0342, -0.0025])
+    ```
+    - using 1e^-5 as our learning rate
+  5. Step the weights
+    ```
+    lr = 1e-5
+    params.data -= lr * params.grad.data
+    params.grad = None
+    ```
+    - the new loss
+    ```
+    preds = f(time, params)
+    mse(preds, speed)  # tensor(19858.7148, grad_fn=<MeanBackward0>)
+    ```
+  6. Repeat the process
+    ```
+    def apply_step(params, prn=True):
+      preds = f(time, params)
+      loss = mse(preds, speed)
+      loss.backward()
+      params.data -= lr * params.grad.data
+      params.grad = None
+      if prn: print(loss.item())
+      return preds
+    for i in range(10): apply_step(params)
+    ```
+  7. Stop
+    - decide when to stop based on training and validation losses
+
+### Summarizing Gradient Descent
+- initial weights of model
+  - random if training from scratch
+  - come from pretrained model if transfer learning
+- learning the better weights
+  - we compare outputs from model with our targets (based on labeled data) using a loss function
+  - we change the weights a little based on our loss in our prediction
+    - we calculate gradients
+    - we multiply the gradients by our learning rate to decide how much to move
+    - we iterate until our loss is minimized
+
+### The MNIST Loss Function
+- `view` PyTorch method
+  - changes the shape of a tensor without changing its contents
+  - `-1` parameter to `view` tells the method to make the axis as big as necessary to fit all the data
+- concatenating training images into a single tensor and changing them from a list of matrices (rank-3 tensor) to a list of vectors (rank-2 tensor)
+  ```
+  train_x = torch.cat([stacked_threes, stacked_sevens]).view(-1, 28*28)
+  ```
+- labeling each image `1` for 3s and `0` for 7s
+  ```
+  train_y = tensor([1]*len(threes) + [0]*len(sevens)).unequeeze(1)
+  train_x.shape, train_y.shape  # (torch.Size([12396, 784]), torch.Size([12396, 1]))
+  ```
+- a `DataSet` in PyTorch is required to return a tuple of `(x,y)` when indexed
+  ```
+  dset = list(zip(train_x, train_y))
+  x,y = dset[0]
+  x.shape,y  # (torch.size([784]), tensor([1]))
+  valid_x = torch.cat([valid_3_tens, valid_7_tens]).view(-1, 28*28)
+  valid_y = tensor([1]*len(valid_3_tens) + [0]*len(valid_7_tens)).unsqueeze(1)
+  valid_dset = list(zip(valid_x,valid_y))
+  ```
+- initializing parameters
+  - the wieghts and biases of a model
+    - weights are `w` and biases are `b` in `w*x+b`
+  - initializing weights for every pixel to random value
+    ```
+    def init_params(size, std=1.0): return (torch.randn(size)*std).requires_grad_()
+    weights = init_params((28*28,1))
+    ```
+  - initializing bias
+    ```
+    bias = init_params(1)
+    ```
+- calculating a prediction for one image
+  ```
+  (train_x[0]*weights.T).sum() + bias  # tensor([20.2336], grad_fn=<AddBackward0>)
+  ```
+- matrix multiplication in python is the `@` operator
+  ```
+  def linear1(xb): return xb@weights + bias
+  preds = linear1(train_x)
+  preds
+  ```
+  - `batch@weights + bias` is the feedforward equation
+- checking accurracy
+  ```
+  corrects = (preds>0.0).float() == train_y
+  corrects  # tensor([[True], [True], [False], ... [True]])
+  corrects.float().mean().item()  # 0.49
+  ```
+- choosing a loss function
+  - why accuracy isn't used as a loss function
+    - accuracy only changes when a prediction changes from a 3 to a 7 or vice versa
+    - a small change in weights from `x_old` to `x_new` isn't likely to cause any prediction to change, so the gradient would be 0 almost everywhere
+  - we want a loss function so that when weights result inslightly better predictions, we get a slightly better loss
+    - if correct answer is a 3, the score is a little higher, if the correct answer is a 7, the score is a little lower
+  - a loss function should measure the difference between predicted values and the true values
+  - `torch.where` method
+    - `torch.where(a,b,c)` is same as list comprehension `[b[i] if a[i] else c[i] for i in range(len(a))]` except it works on tensors
+    - ex:
+      ```
+      x = torch.randn(3,2)
+      y = torch.ones(3,2)
+      x  # tensor([[-0.4620, 0.3139], [0.3898, -0.7197], [0.0478, -0.1657]])
+      z = torch.where(x > 0, x, y)
+      z  # tensor([[1.0000, 0.3139], [0.3898, 1.0000], [0.0478, 1.0000]])
+      ```
+
+### Sigmoid 
+- `sigmoid` function always outputs a number between 0 and 1
+  ```
+  def sigmoid(x): return 1/(1+torch.exp(-x))
+  ```
+- `torch.sigmoid` is built into Python for an accelerated version
+- takes any input value, positive or negative, and outputs a value between 0 and 1
+- S-shaped graph with asymptotes at y=0 and y=1
+- metric vs loss
+  - metric is to drive human understanding
+    - what we really care about
+    - printed at the end of each epoch to tell us how our model is really doing
+    - used to judge the performance of a model
+  - loss is to drive automated learning
+    - must be a function that has a meaningful derivative
+    - can't have large flat sections and large jumps
+    - should be relatively smooth
+    - often might not reflect exactly what we are trying to achieve
+    - loss function calculated for each item in the dataset, and at the end of an epoch the loss values are all averaged and the overall mean is reported for the epoch
+
+### SGD and Mini-Batches
+- optimization step: update the weights based on the gradients
+  - need to calculate the loss over one or more data items
+  - calculating for whole dataset then averaging would take a long time
+  - calculating for a single data item would not use much info and so would be imprecise and result in an unstable gradient
+- mini batch
+  - we calculate the average loss for a few data items at a time in the optimization step
+  - GPUs perform bettere when they have lots of work to do at a time, so with mini-batches we give them lots of data items to work with which results in faster performance
+- batch size
+  - number of data items in a batch
+  - a larger batch means 
+    - more accurate/stable estimate of datasets gradients
+    - will take longer and will process fewer mini-batches per epoch
+  - need to decide how to choose a good batch size 
+- better generalization with variation in training
+  - we can vary what data items we put in each mini-batch
+  - instead of enumerating our dataset in order for every epoch, we randomly shuffle it on every epoch before we create the mini-batches
+  - PyTorch `DataLoader` class does the shuffling and mini-batch collation
+    - can take any Python collection and turn it into an iterator over many batches
+      ```
+      coll = range(15)
+      dl = DataLoader(coll, batch_size=5, shuffle=True)
+      list(dl)  # [tensor([ 3, 12,  8, 10,  2]), tensor([ 9,  4,  7, 14,  5]), tensor([ 1, 13,  0,  6, 11])]
+      ```
+  - PyTorch `Dataset` is a colletion containing tuples of independent and dependent variables
+  - passing a `Dataset` to a `DataLoader` gives us many batches which are themselves tuples of tensors representing batches of independent and dependent variables
+    ```
+    dl = DataLoader(ds, batch_size=6, shuffle=True)
+    list(dl)  # [(tensor([19, 14,  0, 24, 20, 12]), ('t', 'o', 'a', 'y', 'u', 'm')), (tensor([23,  8,  9,  3, 16,  6]), ('x', 'i', 'j', 'd', 'q', 'g')), ...]
+    ```
+### Putting it All Together
+- initializing parameters
+  ```
+  weights = init_params((28*28, 1))
+  bias = init_params(1)
+  ```
+- creating a `DataLoader` from a `Dataset`
+  ```
+  dl = DataLoader(dset, batch_size=256)
+  xb, yb = first(dl)
+  xb.shape, yb.shape  # (torch.Size([256, 784]), torch.Size([256, 1]))
+  valid_dl = DataLoader(valid_dset, batch_size=256)
+  ```
+- creating a mini-batch of size 4 for testing
+  ```
+  valid_dl = DataLoader(valid_dset, batch_size=256)
+  batch = train_x[:4]
+  batch.shape  # torch.Size([4, 784])
+  preds = linear1(batch)
+  preds  # tensor([[-11.1002], [  5.9263], [  9.9627], [ -8.1484]], grad_fn=<AddBackward0>)
+  loss = mnist_loss(preds, train_y[:4])
+  loss  # tensor(0.0283, grad_fn=<MeanBackward0>)
+  ```
+- calculating gradients
+  ```
+  loss.backward()
+  weights.grad.shape  # torch.Size([784, 1])
+  weights.grad.mean()  # tensor(-0.1511)
+  bias.grad  # tensor([-1.]))
+  ```
+- doing it all together
+  ```
+  def calc_grad(xb, yb, model):
+    preds = model(xb)
+    loss = mnist_loss(preds, yb)
+    loss.backward()
+  ```
+  - testing
+    ```
+    calc_grad(batch, train_y[:4], linear1)
+    weights.grad.mean(), bias.grad  # (tensor(-0.3022), tensor([-2.]))
+    ```
+  - must set current gradients to 0 first since `loss.backward` adds the gradients of `loss` to any gradients currently stored
+    ```
+    weights.grad.zero_()
+    bias.grad.zero_()
+    ```
+    - note: methods in PyTorch whose names end in an underscore modify their objects in place
+  - update weights and biases based on the gradient and learning rate
+    ```
+    def train_epoch(model, lr, params):
+      for xb, yb in dl:
+        calc_grad(xb, yb, model)
+        for p in params:
+          p.data -= p.grad*lr  # assign to the data attribute of tensor so PyTorch doesn't take gradient of this step
+          p.grad.zero_()
+    ```
+  - calculating validation accuracy
+    ```
+    def batch_accuracy(xb, yb);
+      preds = xb.sigmoid()
+      correct = (preds > 0.5) == yb
+      return correct.float().mean()
+    ```
+  - putting batches together
+    ```
+    def validate_epoch(model):
+      accs = [batch_accuracy(model(xb), yb) for xb, yb in valid_dl]
+      return round(torch.stack(accs).mean().item(), 4)
+    ```
+  - training for several epochs
+    ```
+    for i in range(20):
+      train_epoch(linear1, lr, params)
+      print(validation_epoch(linear1), end=' ')  # 0.6663 0.8265 0.8899 0.9182 0.9275 0.9397 0.9466 0.9505 0.9525 0.9559 0.9578 0.9598 0.9608 0.9613 0.9618 0.9632 0.9637 0.9647 0.9657 0.9672
+    ```
+  
+ ### Creating an Optimizer
+  
+  
 
 ## Questionnaire
 1. **How is a grayscale image represented on a computer? How about a color image?**
@@ -327,32 +595,49 @@
 12. **What is SGD?**
   - a method for automatically updating the weights of our model based on a loss function
 13. **Why does SGD use mini-batches?**
-  - 
+  - using the whole dataset and taking the average to calculate the gradient would take a very long time
+  - using one data item at a time for the optimization step would result in imprecise and unstable gradients
+  - mini-batches compromise between the two
+  - mini-batches also allow the GPUs to perform processes more efficiently
 14. **What are the seven steps in SGD for machine learning?**
+  - Step 1: Initialize the parameters
+  - Step 2: Calculate the predictions
+  - Step 3: Calculate the loss
+  - Step 4: Calculate the gradients
+  - Step 5: Step the weights
+  - Step 6: Repeat the process
+  - Step 7: Stop
 15. **How do we initialize the weights in a model?**
-  - randomly
+  - with random values if we are starting of a model from scratch
+  - using the parameters from another model if we are using transfer learning
 16. **What is "loss"?**
   - a measure of the performance of our model
   - usually, a small loss is treated as good and a large loss is treated as bad
 17. **Why can't we always use a high learning rate?**
-  - 
-18. What is a "gradient"?
-19. Do you need to know how to calculate gradients yourself?
-20. Why can't we use accuracy as a loss function?
-21. Draw the sigmoid function. What is special about its shape?
-22. What is the difference between a loss function and a metric?
-23. What is the function to calculate new weights using a learning rate?
-24. What does the DataLoader class do?
-25. Write pseudocode showing the basic steps taken in each epoch for SGD.
-26. Create a function that, if passed two arguments [1,2,3,4] and 'abcd', returns [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]. What is special about that output data structure?
-27. What does view do in PyTorch?
-28. What are the "bias" parameters in a neural network? Why do we need them?
-29. What does the @ operator do in Python?
-23. What does the backward method do?
-24. Why do we have to zero the gradients?
-25. What information do we have to pass to Learner?
-26. Show Python or pseudocode for the basic steps of a training loop.
-27. What is "ReLU"? Draw a plot of it for values from -2 to +2.
-28. What is an "activation function"?
-29. What's the difference between F.relu and nn.ReLU?
-30. The universal approximation theorem shows that any function can be approximated as closely as needed using just one nonlinearity. So why do we normally use more?
+  - a higher learning rate might result in our model not being able to converge upon the minimum value with respect to the loss function
+18. **What is a "gradient"?**
+  - in deep learning, the gradient is the value of a function's derivative at a certain point
+  - the gradient combined with the learning rate tells us how much to change our weights by
+19. **Do you need to know how to calculate gradients yourself?**
+  - PyTorch will do it for you
+20. **Why can't we use accuracy as a loss function?**
+  - using accuracy as a loss function would result in the gradients being 0 almost everywhere, since a small change in the weights most likely won't change the prediction entirely
+21. **Draw the sigmoid function. What is special about its shape?**
+  - The sigmoid function is an S-shaped function with asymptotes at y=0 and y=1
+22. **What is the difference between a loss function and a metric?**
+  - a loss function is what we use for automated learning while a metric is what is used to judge the performance of a model
+23. **What is the function to calculate new weights using a learning rate?**
+24. **What does the DataLoader class do?**
+25. **Write pseudocode showing the basic steps taken in each epoch for SGD.**
+26. **Create a function that, if passed two arguments [1,2,3,4] and 'abcd', returns [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]. What is special about that output data structure?**
+27. **What does view do in PyTorch?**
+28. **What are the "bias" parameters in a neural network? Why do we need them?**
+29. **What does the @ operator do in Python?**
+23. **What does the backward method do?**
+24. **Why do we have to zero the gradients?**
+25. **What information do we have to pass to Learner?**
+26. **Show Python or pseudocode for the basic steps of a training loop.**
+27. **What is "ReLU"? Draw a plot of it for values from -2 to +2.**
+28. **What is an "activation function"?**
+29. **What's the difference between F.relu and nn.ReLU?**
+30. **The universal approximation theorem shows that any function can be approximated as closely as needed using just one nonlinearity. So why do we normally use more?**
