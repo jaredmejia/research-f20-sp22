@@ -551,9 +551,132 @@
     ```
   
  ### Creating an Optimizer
-  
-  
+ - module
+   - object of a class that inherits from the PyTorch `nn.Module` class
+ - PyTorch `nn.Linear` module
+   - can be called using parenthesis and will return the activations of the model
+   - contains both the weights and the biases in a single class
+   - does the same as `init_params` and `linear` together
+ - creating a model
+   ```
+   linear_model = nn.Linear(28*28,1)
+ - `parameters` method
+   - allows us to access the parameters of a model using the PyTorch module
+     ```
+     w, b = linear_model.parameters()
+     w.shape  # torch.Size([1, 784])
+     b.shape  # torch.Size([1])
+     ```
+ - creating an optimizer
+   ```
+   class BasicOptim:
+      def __init__(self, params, lr):
+          self.params, self.lr = list(params), lr
+      
+      def step(self, *args, **kwargs):
+          for p in self.params: p.data -= p.grad.data * self.lr
+      
+      def zero_grad(self, *args, **kwargs):
+          for p in self.params: p.grad = None
+   
+   opt = BasicOptim(linear_model.parameters(), lr)
+   ```
+ - training the model 
+   ```
+   def train_epoch(model):
+      for xb, yb in dl:
+          calc_grad(xb, yb, model)
+          opt.step()
+          opt.zero_grad()
+          
+   def train_model(model, epochs):
+      for i in range(epochs):
+          train_epoch(model)
+          print(validate_epoch(model), end=' ')
+   
+   train_model(linear_model, 20)  # 0.4932 at epoch 1 and 0.9785 at epoch 20
+   ```
+ - fastai `SGD` class does the same thing as our `BasicOptim` class
+   ```
+   linear_model = nn.Linear(28*28, 1)
+   opt = SGD(linear_model.parameters(), lr)
+   train_model(linear_model, 20)  # same output as before
+   ```
+ - fastai `Learner.fit` can be used instead of `train_model`
+ - creating a `Learner`
+   - first must create a `DataLoaders` by passing our training and validation `DataLoader`s
+     ```
+     dls = DataLoaders(dl, valid_dl)
+     ```
+   - to create `Learner` without application like `cnn_learner`, need to pass in all previous elements created
+     - the `DataLoaders`
+     - the model 
+     - the optimization function (passed the parameters)
+     - the loss function
+     - metrics to print
+     ```
+     learn = Learner(dls, nn.Linear(28*28,1), opt_func=SGD, loss_func=mnist_loss, metrics=batch_accuracy)
+     ```
+ - using `Linear.fit` to train model and get output
+   ```
+   learn.fit(10, lr=lr)
+   ```
+### Adding Nonlinearity to model 
+ - a neural network allows for a better model by adding nonlinearity
+ - a basic neural network
+   ```
+   w1 = init_params((28*28,30))
+   b1 = init_params(30)
+   w2 = init_params((30,1))
+   b2 = init_params(1)
+   def simple_net(xb):
+      res = xb@w1 + b1
+      res = res.max(tensor(0.0))
+      res = res@w2 + b2
+      return res
+   ```
+   - `w1` and `w2` weight tensors and `b1`, `b2` bias tensors
+ - rectified linear unit (ReLU) function
+   - `res.max(tensor(0.0))`
+   - replaces every negative number with a zero
+   - available in PyTorch as `F.relu`
+ - the composition of linear functions is just a single linear function
+   - many linear classifiers can be stacked together, but without nonlinear functions between them, it will be the same as one linear classifier
+ - the universal approximation theorem
+   - with our simple network, the right parameters, and large enough matrices, we can solve any computable problem to a high level of accuracy
+ - even simpler code thanks to PyTorch
+   ```
+   simple_net = nn.Sequential(
+      nn.Linear(28*28,30),  # linear layer
+      nn.ReLU(),  # activation function
+      nn.Linear(30,1)  # linear layer
+   ```
+   - `nn.Sequential` creates module to call each of layers or functions in turn
+   - `nn.ReLU` is PyTorch module that does same thing as `F.relu` function
+     - functions in a model often have identical forms as modules
+     - must use module version for `nn.Sequential`
+     - must be instantiated (`nn.ReLU()`) since it is a class
+   - `nn.Sequential` module parameters contains a list of all the parameters of all the modules it contains
+   ```
+   learn = Learner(dls, simple_net, opt_func=SGD, loss_func=mnist_loss, metrics=batch_accuracy)
+   learn.fit(40, 0.1) 
+   learn.recorder.values[-1][2]  # 0.982
+   ```
+     - the training process is stored in `learn.recorder`
+     - the table of output is stored in `values` attribute of `learn.recorder`
 
+### Deeper models
+ - models with more layers (deeper models) perform better
+ - with deeper models, we don't need to use as many parameters
+   - we can use smaller matrices with more layers, and get better results than we would get with larger matrices and few layers
+ - training with an 18-layer model
+   ```
+   dls = ImageDataLoaders.from_folder(path)
+   learn = cnn_learner(dls, resnet18, pretrained=False, loss_func=F.cross_entropy, metrics=accuracy)
+   learn.fit_one_cycle(1, 0.1)  # 1 epoch, .995 accuracy
+   ```
+   
+  
 ## Questionnaire
 1. **How is a grayscale image represented on a computer? How about a color image?**
   - grayscale image: each pixel is number 0 (white) to 255 (black)
@@ -627,17 +750,52 @@
 22. **What is the difference between a loss function and a metric?**
   - a loss function is what we use for automated learning while a metric is what is used to judge the performance of a model
 23. **What is the function to calculate new weights using a learning rate?**
+  - `w -= gradient(w)*lr`
 24. **What does the DataLoader class do?**
+  - takes any Python colletion and turns it into an iterator over many batches
+  - it also does all of the shuffling and mini-batch collation for us
 25. **Write pseudocode showing the basic steps taken in each epoch for SGD.**
+  ```
+  for x,y in data:
+      pred = model(x)
+      loss = loss_func(pre, y)
+      loss.backward()
+      parameters -= parameters.grad*lr
+  ```
 26. **Create a function that, if passed two arguments [1,2,3,4] and 'abcd', returns [(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')]. What is special about that output data structure?**
+  ```
+  def f(l, t): list(zip(l,t))
+  ```
 27. **What does view do in PyTorch?**
+  - changes the shape of a tensor withotu changing its contents
 28. **What are the "bias" parameters in a neural network? Why do we need them?**
+  - bias parameters are those which we add to the weighted input of a neuron in order to ensure that the value for a neuron won't be equal to 0 if the value of the pixel is 0.
 29. **What does the @ operator do in Python?**
+  - matrix multiplication
 23. **What does the backward method do?**
+  - calculates the derivative of each layer
+  - adds the gradients of the object to any gradients that are currently stored
 24. **Why do we have to zero the gradients?**
+  - because the `backward` method adds the gradients of the object to any gradients currently stored, rather than replacing them
 25. **What information do we have to pass to Learner?**
+  - the `DataLoaders`
+  - the model
+  - the optimization function
+  - the loss function
+  - the metrics that we want to print out
 26. **Show Python or pseudocode for the basic steps of a training loop.**
+  ```
+  def train_epoch(model):
+      for xb, yb in dl:
+          calc_grad(xb, yb, model)
+          opt.step()
+          opt.zero_grad()
+  ```
 27. **What is "ReLU"? Draw a plot of it for values from -2 to +2.**
+  - a function which sends all negative values to zero and otherwise doesn't change the value
 28. **What is an "activation function"?**
+  - an activation function or nonlinearity is a function applied between linear layers of a neural network 
 29. **What's the difference between F.relu and nn.ReLU?**
+  - `F.relu` and `nn.ReLU` are both functions that apply the rectified linear unit, but `nn.ReLU` is a PyTorch model used specifically for other learning modules
 30. **The universal approximation theorem shows that any function can be approximated as closely as needed using just one nonlinearity. So why do we normally use more?**
+  - with more layers (with nonlinearity between) we can gain better performance and with less parameters
