@@ -1,0 +1,36 @@
+# Lesson 4 Vocabulary
+- activations
+  - numbers ccalculated within a neural network
+  - include number calculated by linear and nonlinear layers
+- backward pass
+  - copmuting the gradients of the loss with respect to all model parameters
+- forward pass
+  - applying the model to some input and computing the predictions
+- gradient
+  - the derivative of the loss with respect to some parameter of the model
+- gradient descent
+  - taking a step in the directions opposite to the gradients to improve the model parameters
+- learning rate
+  - the size of the step we take when applying SGD to update the parameters of the model
+- loss
+  - a value that represents how well our model is doing
+- mini batch
+  - a small group of inputs and labels gathered together in two arrays
+  - gradient descent step is updated on mini-batches rather than a whole epoch to optimize performance
+- nonlinearity
+  - aka activation function
+  - lies between (with?) linear layers
+- parameters
+  - numbers that are randomly initialized and optimized
+  - the numbers that define a model
+- rank
+  - the number of dimensions of a matrix
+- ReLU
+  - function that returns 0 for negative numbers and doesn't change positve numbers
+- tensors
+  - where activations and parameters are contained
+  - rank zero tensor: scalar
+  - rank one tensor: vector
+  - rank two tensor: matrix
+- 
+  
