@@ -69,6 +69,8 @@
   - to unfreeze model `Learn.unfreeze()`
   - should find the best learning rate again after unfreezing since having more layers to train and weights that have already been trained for three epochs means the previous learning rate isn't appropriate anymore `Learn.lr_find()`
     - note in a pretrained model, we don't look for the point with the maximum gradient
+  - Learner.fit_one_cycle()
+    - starts training at a low rate, gradually increase for first portion of training, gradually decrease for last portion of training
     
 ### Learning Rate Finder
 - we start with a very small learning rate for one mini batch, find what the losses are, and increase the learning rate
