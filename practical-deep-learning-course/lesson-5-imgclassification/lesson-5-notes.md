@@ -69,6 +69,20 @@
   - to unfreeze model `Learn.unfreeze()`
   - should find the best learning rate again after unfreezing since having more layers to train and weights that have already been trained for three epochs means the previous learning rate isn't appropriate anymore `Learn.lr_find()`
     - note in a pretrained model, we don't look for the point with the maximum gradient
+    
+### Learning Rate Finder
+- we start with a very small learning rate for one mini batch, find what the losses are, and increase the learning rate
+- we do another mini-batch record the loss and increase the learning rate again
+- repeat until loss gets worse rather than better
+- we stop and pick either
+  - one order of magnitude less than where minnimum loss was achieved
+  - the last point where the loss was clearly decreasing
+  ```
+  learn = cnn_learner(dls, resnet34, metrics=error_rate)
+  lr_min, lr_steep = learn.lr_find()  # lr of the minimum loss and the steepest point
+  learn.fine_tune(2, base_lr=3e-3)  # using chosen lr in training
+  ```
+  
 
 ### Discriminative Learning Rates
 - the deepest layers of our pretrained model might not need as a high a learning rate as the last ones, so we shoudld use a different lr for those
