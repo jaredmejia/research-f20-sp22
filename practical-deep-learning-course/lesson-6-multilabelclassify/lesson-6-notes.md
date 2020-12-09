@@ -173,6 +173,9 @@
   - if `y_range` is defined, then `def sigmoid_range(x, lo, hi): return torch.sigmoid(x)*(hi-lo)+lo` is set as the final layer of the model
   - check loss function for a given `DataLoaders` with `dls.loss_func`
     - default loss function for image regression is `MSELoss` which makes sense since we want to make a prediction as close as possible in 2D space
+    - we don't need to specify metrics for MSE, but the average coordinate prediction error is equal to the square root of the validation loss from MSE
+  - check results with `Learner.show_results`
+    - ex: `learn.show_results(ds_idx=1, nrows=3, figsize=(6,8))`
  
  ### Which loss function to use?
  - most likely:
