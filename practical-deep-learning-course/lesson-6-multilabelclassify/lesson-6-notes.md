@@ -142,7 +142,46 @@
 
 ### Regression Problem
 - sometimes our labels are one or several numbers, a quantity rather than a category
-
+- image regression
+  - learning from a dataset where the indpendent variable is an image and the dependent variable is one or more floats
+- key point model
+  - a specific location represented in an image
+  - ex: model that takes images of people and looks for the center of the person's face in each image
+  - predicts two values for the image: the row and column of the face center
+- `get_image_files(path)`
+  - recursively gets all of the image files of a path
+- `DataBlock` for finding the center of a person's face in an image
+  ```
+  biwi = DataBlock(
+      blocks=(ImageBlock, PointBlock),
+      get_items=get_image_files,
+      get_y=get_ctr,
+      splitter=FuncSplitter(lambda o: o.parent.name=='13'),
+      batch_tfms=[*aug_transforms(size=(240,320)),
+                  Normalize.from_stats(*imagenet_stats)]
+  )
+  ```
+  - `get_ctr` is function that takes an image and returns the row, col coordinates of the center a the person's face in the image, so we pass it to `get_y` because it labels each item
+  - we don't use a random splitter here since multiple people occur in multiple images and we want our validation set to contain images of people we haven't seen yet
+  - we instead pick images of a specific person that is not in our training set to make up our validation set
+  - `PointBlock` tells fastai that the labels represent coordinates, so when performing data augmentation, the same augmentation will be performed on the coordinates as the images
+  ```
+  learn = cnn_learner(dls, resnet18, y_range=(-1,1))
+  ```
+  - `y_range` is used to specifiy the range of our targets
+    - coordinates in fastai and PyTorch are always rescaled between -1 and +1
+  - if `y_range` is defined, then `def sigmoid_range(x, lo, hi): return torch.sigmoid(x)*(hi-lo)+lo` is set as the final layer of the model
+  - check loss function for a given `DataLoaders` with `dls.loss_func`
+    - default loss function for image regression is `MSELoss` which makes sense since we want to make a prediction as close as possible in 2D space
+ 
+ ### Which loss function to use?
+ - most likely:
+  - `nn.CrossEntropyLoss` for single-label classification
+  - `nn.BCEWithLogitsLoss` for multi-label classification
+  - `nn.MSELoss` for regression
+  
+  
+  
 
 
 
