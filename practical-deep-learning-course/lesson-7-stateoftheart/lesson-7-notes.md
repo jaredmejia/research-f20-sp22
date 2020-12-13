@@ -86,8 +86,87 @@
   ```
 
 ## Mixup
+- data augmentation technique that can provide dramatically higher accuracy especially when there isn't much data and there isn't a pretrained model trained on data similar to a particular dataset
+- for each image:
+  - select another image from your dataset at random
+  - pick a weight at random
+  - take a weighted average using the weight that was picked of the selected image with your image
+    - this is the independent variable
+  - take a weighted average using the same weight of this image's labels with your image's labels
+    - this is the dependent variable
+- psuedocode (`t` is weight for the weighted average)
+  ```
+  image2, target2 = dataset[randint(0, len(dataset)]
+  t = random_float(0.5, 1.0)
+  new_image = t * image1 + (1-t) * image2
+  new_target = t * target1 + (1-t) * target2
+  ```
+- targets must be one-hot encoded for this to work
+- ex:
+  - say we have 10 classes and image i is at index 2 and image j is at index 7, the one hot encoded representations are then
+    ```
+    [0,0,1,0,0,0,0,0,0,0] and [0,0,0,0,0,0,0,1,0,0]
+    ```
+  - t = 0.3 then the target would be 
+    ```
+    [0,0,0.3,0,0,0,0,0.7,0,0]
+    ```
+- fastai does this by adding a *callback* to our `Learner`
+  - `Callback`s inject custom behavior in the training loop
+  - specified by the `cbs` parameter in `Learner`
+- training a model with Mixup
+  ```
+  model = xresnet50()
+  learn = Learner(dls, model, loss_func=CrossEntropyFlat(), metrics=accuracy, cbs=Mixup)
+  learn.fit_one_cycle(5, 3e-3)
+  ```
+- with mixup, it's harder to train since it's harder to see what is in each image
+  - model also has to predict two labels per image, rather than just one and figure out how much each one is weighted
+- overfitting is less likely to be a problem in mixup since we're not showing the same image in each epoch, but instead we are showing a random combination of two images
+- mixup requires many more epochs to get better accuracy compared to other augmentation approaches
+  - > 80 epochs for Imagenette
+- can be applied to data other than photos
+  - mixup alos used for activations inside models rather than just inputs which allows it to be used for NLP and other data types as well
+- with sigmoid and softmax, the labels are always between 0 and 1 exclusive, but our labels are 1s and 0s and so the loss can never be perfect
+  - with mixup, the labels can be exactly 1 or 0 if the images that are 'mixed' happen to be of the same class
+  - the rest of the time the labels are a linear combination such as 0.3 and 0.7
+  - problem is mixup may 'accidentally' make labels bigger than 0 or smaller than 1 in this case
+
+## Label Smoothing
+- handles the problem of having to change the amount of mixup to get labels closer to or further from 0 and 1
+- our model is often overconfident, gets gradients and learns to predict activations with higher and higher confidence which encourages overfitting
+  - results in a model that always says 1 for a predicted category even if it isn't too sure because it was trained this way
+- label smoothing
+  - we encourage the model to be less confident which makes training more robust even if there is mislabeled data
+  - results in a model that generalizes better
+  - we replace all our 1s with a number a bit less than 1 and our 0s with a number a bit more than 0 and then train
+- in practice
+  - begin with one-hot-encoded labels
+  - replace all 0s with epsilon/N
+    - epsilon: a parameter (usually 0.1 meaning 10% unsure of labels)
+    - N: number of classes
+  - we want the labels to add up to 1 and so we replace the 1 by 1 - epsilon + epsilon/N
+  - ex: for 10 classes where target corresponds to index 3 with epsilon=0.1
+    ```
+    [0.01, 0.01, 0.01, 0.91, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+    ```
+  - implementing with fastai
+    ```
+    model = xresnet50()
+    learn = Learner(dls, model, loss_func=LabelSmoothingCrossEntropy(), metrics=accuracy)
+    learn.fit_one_cycle(5, 3e-3)
+    ```
+  - label smoothing also takes many epochs to see significant improvements
   
   
+  
+  
+  
+  
+  
+  
+  
+    
   
   
   
