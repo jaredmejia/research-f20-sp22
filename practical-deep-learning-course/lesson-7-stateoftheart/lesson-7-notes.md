@@ -117,7 +117,7 @@
 - training a model with Mixup
   ```
   model = xresnet50()
-  learn = Learner(dls, model, loss_func=CrossEntropyFlat(), metrics=accuracy, cbs=Mixup)
+  learn = Learner(dls, model, loss_func=CrossEntropyFlat(), metrics=accuracy, cbs=MixUp)
   learn.fit_one_cycle(5, 3e-3)
   ```
 - with mixup, it's harder to train since it's harder to see what is in each image
